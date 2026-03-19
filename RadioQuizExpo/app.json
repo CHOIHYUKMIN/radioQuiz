@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -25,13 +25,15 @@
         "android.permission.FOREGROUND_SERVICE",
         "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
         "android.permission.WAKE_LOCK",
-        "android.permission.SEND_SMS"
-      ],
-      "plugins": [
-        "react-native-track-player"
+        "android.permission.SEND_SMS",
+        "android.permission.RECORD_AUDIO"
       ],
       "package": "com.hyukmin.radioquiz"
     },
+    "plugins": [
+        "react-native-track-player",
+        "react-native-whisper"
+    ],
     "web": {
       "favicon": "./assets/favicon.png"
     },
