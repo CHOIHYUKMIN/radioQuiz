@@ -30,7 +30,7 @@ export default function Home() {
           </h1>
 
           <p className="text-lg md:text-xl text-neutral-400 max-w-2xl mx-auto">
-            KBS, MBC, SBS 라디오 채널을 실시간으로 분석합니다. 22
+            KBS, MBC, SBS 라디오 채널을 실시간으로 분석합니다.
             AI가 퀴즈를 감지하고 정답을 찾아 원터치로 문자를 전송합니다.
           </p>
 
