@@ -84,6 +84,7 @@ const App = () => {
         if (isMounted) setIsWhisperReady(true);
       } catch (err) {
         console.error('Whisper init failed:', err);
+        Alert.alert('AI 시스템 오류', 'AI 모델을 초기화할 수 없습니다. 인터넷 연결을 확인해주세요.');
       }
     })();
     return () => {
