@@ -9,15 +9,17 @@ import {
   ActivityIndicator,
   ScrollView,
   Alert,
+  Modal,
 } from 'react-native';
 import TrackPlayer, {
   State,
   Capability,
   usePlaybackState,
 } from 'react-native-track-player';
-import channelsData from './src/data/channels.json';
+import masterChannels from './src/data/masterChannels.json';
 import { startSTTSimulation } from './src/services/sttSimulator';
 import { sendQuizAnswerSms } from './src/services/smsService';
+import { getSelectedChannelIds, saveSelectedChannelIds } from './src/services/storageService';
 
 interface Channel {
   id: string;
@@ -27,6 +29,8 @@ interface Channel {
   color: string;
   logo: string;
 }
+
+const DEFAULT_CHANNELS = ['kbs_coolfm', 'mbc_fm4u', 'sbs_powerfm'];
 
 const setupPlayer = async () => {
   try {
@@ -54,17 +58,23 @@ const App = () => {
   const playbackState = usePlaybackState();
   const [sttStopFn, setSttStopFn] = useState<(() => void) | null>(null);
   const [quizDetected, setQuizDetected] = useState(false);
+  const [subtitles, setSubtitles] = useState(["라디오 스트림에 연결 중..."]);
 
-  // Mock state for subtitles preview
-  const [subtitles, setSubtitles] = useState([
-    "라디오 스트림에 연결 중...",
-  ]);
+  // Channel Selection State
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [isModalVisible, setIsModalVisible] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
     (async () => {
       await setupPlayer();
-      if (isMounted) setIsPlayerReady(true);
+      
+      // Load saved channels
+      const savedIds = await getSelectedChannelIds();
+      if (isMounted) {
+        setSelectedIds(savedIds || DEFAULT_CHANNELS);
+        setIsPlayerReady(true);
+      }
     })();
     return () => {
       isMounted = false;
@@ -72,18 +82,19 @@ const App = () => {
     };
   }, []);
 
+  // Filtered channels based on selection
+  const displayChannels = (masterChannels as Channel[]).filter(c => selectedIds.includes(c.id));
+
   // Handle STT simulation based on playback state
   useEffect(() => {
     if (activeChannel && playbackState.state === State.Playing) {
       if (!sttStopFn) {
-        setSubtitles(prev => [...prev.slice(-9), `${activeChannel.name} 실시간 자막 분석 시작...`]);
-        const stop = startSTTSimulation(activeChannel.name, (text) => {
-          setSubtitles(prev => [...prev.slice(-9), text]); // Keep last 9 lines
-          
-          // Simple rule-based quiz detection
+        setSubtitles((prev: string[]) => [...prev.slice(-9), `${activeChannel.name} 실시간 자막 분석 시작...`]);
+        const stop = startSTTSimulation(activeChannel.name, (text: string) => {
+          setSubtitles((prev: string[]) => [...prev.slice(-9), text]);
           if (text.includes('퀴즈') || text.includes('정답')) {
             setQuizDetected(true);
-            setTimeout(() => setQuizDetected(false), 15000); // Hide button after 15s
+            setTimeout(() => setQuizDetected(false), 15000);
           }
         });
         setSttStopFn(() => stop);
@@ -92,14 +103,22 @@ const App = () => {
       if (sttStopFn) {
         sttStopFn();
         setSttStopFn(null);
-        setSubtitles(prev => [...prev.slice(-9), `[시스템] 자막 분석 일시정지`]);
+        setSubtitles((prev: string[]) => [...prev.slice(-9), `[시스템] 자막 분석 일시정지`]);
         setQuizDetected(false);
       }
     }
   }, [activeChannel, playbackState.state]);
 
+  const toggleChannelSelection = async (id: string) => {
+    const newIds = selectedIds.includes(id)
+      ? selectedIds.filter((selectedId: string) => selectedId !== id)
+      : [...selectedIds, id];
+    
+    setSelectedIds(newIds);
+    await saveSelectedChannelIds(newIds);
+  };
+
   const handleSendQuizAnswer = () => {
-    // In real app, Gemini extracts answer and target number from STT context
     sendQuizAnswerSms('8910', '정답: 2번')
       .then(() => Alert.alert('성공', '정답 문자가 발송되었습니다! 🎉'))
       .catch(() => Alert.alert('실패', '발송 실패 😢'));
@@ -115,7 +134,6 @@ const App = () => {
         }
         return;
       }
-
       await TrackPlayer.reset();
       await TrackPlayer.add({
         id: channel.id,
@@ -134,14 +152,9 @@ const App = () => {
   const renderChannel = ({ item }: { item: Channel }) => {
     const isActive = activeChannel?.id === item.id;
     const isPlaying = isActive && playbackState.state === State.Playing;
-
     return (
       <TouchableOpacity
-        style={[
-          styles.channelCard,
-          { borderLeftColor: item.color },
-          isActive && styles.channelCardActive,
-        ]}
+        style={[styles.channelCard, { borderLeftColor: item.color }, isActive && styles.channelCardActive]}
         onPress={() => playChannel(item)}
       >
         <View style={styles.channelInfo}>
@@ -171,42 +184,78 @@ const App = () => {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>📻 라디오 퀴즈 수집기</Text>
+        <TouchableOpacity style={styles.manageButton} onPress={() => setIsModalVisible(true)}>
+          <Text style={styles.manageButtonText}>채널 선택</Text>
+        </TouchableOpacity>
       </View>
 
-      <View style={styles.channelListContainer}>
-        <FlatList
-          data={channelsData}
-          keyExtractor={(item) => item.id}
-          renderItem={renderChannel}
-          contentContainerStyle={styles.listContent}
-        />
-      </View>
+      <FlatList
+        data={displayChannels}
+        keyExtractor={(item: Channel) => item.id}
+        renderItem={renderChannel}
+        contentContainerStyle={styles.listContent}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>선택된 채널이 없습니다.</Text>
+            <TouchableOpacity style={styles.addFirstButton} onPress={() => setIsModalVisible(true)}>
+              <Text style={styles.addFirstButtonText}>채널 추가하러 가기</Text>
+            </TouchableOpacity>
+          </View>
+        }
+      />
+
+      <Modal visible={isModalVisible} animationType="slide">
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>방송국 목록</Text>
+            <TouchableOpacity onPress={() => setIsModalVisible(false)}>
+              <Text style={styles.closeButton}>닫기</Text>
+            </TouchableOpacity>
+          </View>
+          <FlatList
+            data={masterChannels as Channel[]}
+            keyExtractor={(item: Channel) => item.id}
+            renderItem={({ item }: { item: Channel }) => (
+              <TouchableOpacity
+                style={styles.modalItem}
+                onPress={() => toggleChannelSelection(item.id)}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Text style={{ fontSize: 24, marginRight: 15 }}>{item.logo}</Text>
+                  <View>
+                    <Text style={styles.modalItemName}>{item.name}</Text>
+                    <Text style={styles.modalItemFreq}>{item.frequency}</Text>
+                  </View>
+                </View>
+                <View style={[styles.checkbox, selectedIds.includes(item.id) && styles.checkboxChecked]}>
+                  {selectedIds.includes(item.id) && <Text style={{ color: '#fff', fontSize: 10 }}>✓</Text>}
+                </View>
+              </TouchableOpacity>
+            )}
+            contentContainerStyle={{ padding: 20 }}
+          />
+        </SafeAreaView>
+      </Modal>
 
       <View style={styles.subtitleContainer}>
         <View style={styles.subtitleHeader}>
           <Text style={styles.subtitleTitle}>
             {activeChannel ? `${activeChannel.name} 실시간 자막` : '채널을 선택하세요'}
           </Text>
-          <View style={{flexDirection: 'row', alignItems: 'center'}}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             {quizDetected && (
               <TouchableOpacity style={styles.quizButton} onPress={handleSendQuizAnswer}>
                 <Text style={styles.quizButtonText}>정답 발송</Text>
               </TouchableOpacity>
             )}
             {activeChannel && playbackState.state === State.Playing && (
-              <ActivityIndicator size="small" color="#2A9D8F" style={{marginLeft: 10}} />
+              <ActivityIndicator size="small" color="#2A9D8F" style={{ marginLeft: 10 }} />
             )}
           </View>
         </View>
         <ScrollView style={styles.subtitleScroll}>
-          {subtitles.map((text, index) => (
-            <Text
-              key={index}
-              style={[
-                styles.subtitleText,
-                index === subtitles.length - 1 && styles.subtitleTextLatest
-              ]}
-            >
+          {subtitles.map((text: string, index: number) => (
+            <Text key={index} style={[styles.subtitleText, index === subtitles.length - 1 && styles.subtitleTextLatest]}>
               {text}
             </Text>
           ))}
@@ -225,10 +274,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#DEE2E6',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
   },
-  headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#212529' },
-  channelListContainer: { flex: 1 },
+  headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#212529' },
+  manageButton: { padding: 8, backgroundColor: '#F1F3F5', borderRadius: 8 },
+  manageButtonText: { fontSize: 12, fontWeight: '600', color: '#495057' },
   listContent: { padding: 15 },
   channelCard: {
     flexDirection: 'row',
@@ -245,51 +297,35 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 2,
   },
-  channelCardActive: {
-    backgroundColor: '#F1F3F5',
-    borderColor: '#ADB5BD',
-    borderWidth: 1,
-  },
+  channelCardActive: { backgroundColor: '#F1F3F5', borderColor: '#ADB5BD', borderWidth: 1 },
   channelInfo: { flexDirection: 'row', alignItems: 'center' },
   channelLogo: { fontSize: 24, marginRight: 15 },
   channelName: { fontSize: 16, fontWeight: 'bold', color: '#343A40' },
   channelFrequency: { fontSize: 13, color: '#868E96', marginTop: 3 },
-  playButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#E9ECEF',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  playButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#E9ECEF', justifyContent: 'center', alignItems: 'center' },
   playIcon: { fontSize: 16, color: '#495057' },
-  subtitleContainer: {
-    height: 250,
-    backgroundColor: '#212529',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
-  },
-  subtitleHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 15,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#495057',
-  },
+  subtitleContainer: { height: 250, backgroundColor: '#212529', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20 },
+  subtitleHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: '#495057' },
   subtitleTitle: { color: '#F8F9FA', fontSize: 16, fontWeight: '600' },
   subtitleScroll: { flex: 1 },
   subtitleText: { color: '#ADB5BD', fontSize: 15, marginBottom: 8, lineHeight: 22 },
   subtitleTextLatest: { color: '#F8F9FA', fontWeight: 'bold' },
-  quizButton: {
-    backgroundColor: '#E63946',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 15,
-  },
+  quizButton: { backgroundColor: '#E63946', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 15 },
   quizButtonText: { color: '#fff', fontSize: 12, fontWeight: 'bold' },
+  modalContainer: { flex: 1, backgroundColor: '#fff' },
+  modalHeader: { padding: 20, borderBottomWidth: 1, borderBottomColor: '#eee', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  modalTitle: { fontSize: 18, fontWeight: 'bold' },
+  closeButton: { color: '#E63946', fontWeight: 'bold' },
+  modalItem: { flexDirection: 'row', padding: 15, borderBottomWidth: 1, borderBottomColor: '#f8f9fa', alignItems: 'center', justifyContent: 'space-between' },
+  modalItemName: { fontSize: 16, fontWeight: '600' },
+  modalItemFreq: { fontSize: 12, color: '#868E96' },
+  checkbox: { width: 20, height: 20, borderRadius: 4, borderWidth: 2, borderColor: '#dee2e6', justifyContent: 'center', alignItems: 'center' },
+  checkboxChecked: { backgroundColor: '#E63946', borderColor: '#E63946' },
+  emptyContainer: { alignItems: 'center', marginTop: 50 },
+  emptyText: { color: '#adb5bd', fontSize: 16, marginBottom: 20 },
+  addFirstButton: { backgroundColor: '#E63946', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 10 },
+  addFirstButtonText: { color: '#fff', fontWeight: 'bold' },
 });
 
 export default App;
+
