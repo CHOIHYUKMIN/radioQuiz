@@ -30,10 +30,7 @@
       ],
       "package": "com.hyukmin.radioquiz"
     },
-    "plugins": [
-        "react-native-track-player",
-        "react-native-whisper"
-    ],
+    "plugins": [],
     "web": {
       "favicon": "./assets/favicon.png"
     },

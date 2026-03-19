@@ -17,9 +17,9 @@ import TrackPlayer, {
   usePlaybackState,
 } from 'react-native-track-player';
 import masterChannels from './src/data/masterChannels.json';
-import { startSTTSimulation } from './src/services/sttSimulator';
 import { sendQuizAnswerSms } from './src/services/smsService';
 import { getSelectedChannelIds, saveSelectedChannelIds } from './src/services/storageService';
+import { initWhisperService, startLiveWhisper } from './src/services/whisperService';
 
 interface Channel {
   id: string;
@@ -54,11 +54,13 @@ const setupPlayer = async () => {
 
 const App = () => {
   const [isPlayerReady, setIsPlayerReady] = useState(false);
+  const [isWhisperReady, setIsWhisperReady] = useState(false);
+  const [whisperProgress, setWhisperProgress] = useState(0);
   const [activeChannel, setActiveChannel] = useState<Channel | null>(null);
   const playbackState = usePlaybackState();
   const [sttStopFn, setSttStopFn] = useState<(() => void) | null>(null);
   const [quizDetected, setQuizDetected] = useState(false);
-  const [subtitles, setSubtitles] = useState(["라디오 스트림에 연결 중..."]);
+  const [subtitles, setSubtitles] = useState<string[]>(["시스템 대기 중..."]);
 
   // Channel Selection State
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -75,6 +77,14 @@ const App = () => {
         setSelectedIds(savedIds || DEFAULT_CHANNELS);
         setIsPlayerReady(true);
       }
+
+      // Initialize Whisper
+      try {
+        await initWhisperService((p) => setWhisperProgress(p));
+        if (isMounted) setIsWhisperReady(true);
+      } catch (err) {
+        console.error('Whisper init failed:', err);
+      }
     })();
     return () => {
       isMounted = false;
@@ -85,29 +95,39 @@ const App = () => {
   // Filtered channels based on selection
   const displayChannels = (masterChannels as Channel[]).filter(c => selectedIds.includes(c.id));
 
-  // Handle STT simulation based on playback state
+  // Handle Real STT based on playback state
   useEffect(() => {
-    if (activeChannel && playbackState.state === State.Playing) {
+    if (activeChannel && playbackState.state === State.Playing && isWhisperReady) {
       if (!sttStopFn) {
-        setSubtitles((prev: string[]) => [...prev.slice(-9), `${activeChannel.name} 실시간 자막 분석 시작...`]);
-        const stop = startSTTSimulation(activeChannel.name, (text: string) => {
-          setSubtitles((prev: string[]) => [...prev.slice(-9), text]);
-          if (text.includes('퀴즈') || text.includes('정답')) {
-            setQuizDetected(true);
-            setTimeout(() => setQuizDetected(false), 15000);
+        setSubtitles((prev: string[]) => [...prev.slice(-9), `🔊 ${activeChannel.name} 소리 감지 중...`]);
+        
+        // Start live transcription
+        (async () => {
+          try {
+            const stop = await startLiveWhisper((text: string) => {
+              if (text.trim()) {
+                setSubtitles((prev: string[]) => [...prev.slice(-9), text]);
+                if (text.includes('퀴즈') || text.includes('정답')) {
+                  setQuizDetected(true);
+                  setTimeout(() => setQuizDetected(false), 15000);
+                }
+              }
+            });
+            setSttStopFn(() => stop);
+          } catch (e) {
+            console.error('STT activation error:', e);
           }
-        });
-        setSttStopFn(() => stop);
+        })();
       }
     } else {
       if (sttStopFn) {
         sttStopFn();
         setSttStopFn(null);
-        setSubtitles((prev: string[]) => [...prev.slice(-9), `[시스템] 자막 분석 일시정지`]);
+        setSubtitles((prev: string[]) => [...prev.slice(-9), `📴 자동 자막 분석 일시정지`]);
         setQuizDetected(false);
       }
     }
-  }, [activeChannel, playbackState.state]);
+  }, [activeChannel, playbackState.state, isWhisperReady]);
 
   const toggleChannelSelection = async (id: string) => {
     const newIds = selectedIds.includes(id)
@@ -143,7 +163,7 @@ const App = () => {
       });
       await TrackPlayer.play();
       setActiveChannel(channel);
-      setSubtitles([`${channel.name} 스트림 연결됨.`, '자막 시스템 대기 중...']);
+      setSubtitles([`${channel.name} 스트림 연결됨.`, 'AI 자막 시스템 활성화 중...']);
     } catch (e) {
       console.log('Playback error:', e);
     }
@@ -175,7 +195,7 @@ const App = () => {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color="#E63946" />
-        <Text style={styles.loadingText}>오디오 시스템 초기화 중...</Text>
+        <Text style={styles.loadingText}>시스템 초기화 중...</Text>
       </View>
     );
   }
@@ -183,7 +203,7 @@ const App = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>📻 라디오 퀴즈 수집기</Text>
+        <Text style={styles.headerTitle}>📻 라디오 AI 퀴즈 수집기</Text>
         <TouchableOpacity style={styles.manageButton} onPress={() => setIsModalVisible(true)}>
           <Text style={styles.manageButtonText}>채널 선택</Text>
         </TouchableOpacity>
@@ -237,10 +257,19 @@ const App = () => {
         </SafeAreaView>
       </Modal>
 
+      {!isWhisperReady && (
+        <View style={styles.whisperOverlay}>
+          <ActivityIndicator size="small" color="#fff" />
+          <Text style={styles.whisperText}>
+            AI 모델 다운로드 중... {Math.round(whisperProgress * 100)}%
+          </Text>
+        </View>
+      )}
+
       <View style={styles.subtitleContainer}>
         <View style={styles.subtitleHeader}>
           <Text style={styles.subtitleTitle}>
-            {activeChannel ? `${activeChannel.name} 실시간 자막` : '채널을 선택하세요'}
+            {activeChannel ? `${activeChannel.name} 라이브 분석` : '채널을 선택하세요'}
           </Text>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             {quizDetected && (
@@ -325,6 +354,8 @@ const styles = StyleSheet.create({
   emptyText: { color: '#adb5bd', fontSize: 16, marginBottom: 20 },
   addFirstButton: { backgroundColor: '#E63946', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 10 },
   addFirstButtonText: { color: '#fff', fontWeight: 'bold' },
+  whisperOverlay: { backgroundColor: 'rgba(33, 37, 41, 0.9)', padding: 10, borderRadius: 10, margin: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+  whisperText: { color: '#fff', fontSize: 12, marginLeft: 10 },
 });
 
 export default App;
