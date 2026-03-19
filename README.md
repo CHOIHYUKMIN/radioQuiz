@@ -65,5 +65,27 @@
 - `/web`: Next.js 기반 랜딩 페이지 및 APK 배포용 웹 프로젝트.
 - `src/data/channels.json`: 라디오 채널 데이터 관리 파일.
 
+## 📡 CI/CD 자동 배포 (GitHub Actions)
+
+본 프로젝트는 GitHub `main` 브랜치에 코드가 푸시되면 자동으로 Firebase Hosting에 배포되도록 설정되어 있습니다.
+
+### ⚙️ 초기 설정 방법 (최초 1회)
+자동 배포를 활성화하려면 GitHub Repository에 Firebase 권한(Service Account)을 등록해야 합니다.
+
+1. **Firebase 서비스 계정 키 생성**:
+   - [Firebase 콘솔 > 서비스 계정](https://console.firebase.google.com/project/radioquiz-19892/settings/serviceaccounts/adminsdk)에서 **[새 민감한 키 생성]** 클릭.
+   - 다운로드된 JSON 파일 내용을 전체 복사.
+2. **GitHub Secrets 등록**:
+   - GitHub 저장소의 `Settings` > `Secrets and variables` > `Actions`로 이동.
+   - **New repository secret** 생성.
+     - 이름: `FIREBASE_SERVICE_ACCOUNT_RADIOQUIZ_19892`
+     - 내용: 복사한 JSON 텍스트 붙여넣기.
+
+### 🚀 배포 프로세스
+- `web/` 폴더 내의 코드를 수정한 후 GitHub에 `push`하면 자동으로 다음 작업이 수행됩니다:
+  1. `npm install` (의존성 설치)
+  2. `npm run build` (Next.js 정적 빌드)
+  3. Firebase Hosting으로 업로드 및 릴리즈.
+
 ---
 **문의 및 제안**: [GitHub Issues](https://github.com/CHOIHYUKMIN/radioQuiz/issues) 를 통해 남겨주세요.
