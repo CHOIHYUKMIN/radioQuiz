@@ -8,8 +8,5 @@
  * folder of the web project, then use an absolute path like '/downloads/radio-quiz.apk'.
  */
 
-// TODO: Replace with your actual EAS build link for Method 1
-export const APK_DOWNLOAD_URL = "https://expo.dev/artifacts/eas/placeholder-link.apk";
-
-// For Method 2, use:
-// export const APK_DOWNLOAD_URL = "/downloads/radio-quiz-v1.0.apk";
+// Custom manual file
+export const APK_DOWNLOAD_URL = "/radio_quiz_app.apk";
