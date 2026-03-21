@@ -1,4 +1,5 @@
 import { Download, Radio, MessageSquare, Zap } from "lucide-react";
+import { APK_DOWNLOAD_URL } from "@/constants/links";
 
 export default function Home() {
   return (
@@ -36,8 +37,7 @@ export default function Home() {
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-8" id="download">
             <a
-              href="/release/radio-quiz-v1.0.apk"
-              download
+              href={APK_DOWNLOAD_URL}
               className="flex items-center gap-3 bg-rose-600 hover:bg-rose-500 text-white px-8 py-4 rounded-2xl font-semibold text-lg transition-all hover:scale-105 active:scale-95 w-full sm:w-auto justify-center"
             >
               <Download className="w-5 h-5" />

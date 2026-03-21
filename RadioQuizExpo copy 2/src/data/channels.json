@@ -1,0 +1,50 @@
+[
+  {
+    "id": "kbs_coolfm",
+    "name": "KBS 쿨FM",
+    "frequency": "89.1 MHz",
+    "streamUrl": "http://kbs-scvs.gscdn.com/kbs_coolfm/",
+    "color": "#E63946",
+    "logo": "📻"
+  },
+  {
+    "id": "kbs_happyfm",
+    "name": "KBS 해피FM",
+    "frequency": "104.9 MHz",
+    "streamUrl": "http://kbs-scvs.gscdn.com/kbs_happyfm/",
+    "color": "#F4A261",
+    "logo": "😊"
+  },
+  {
+    "id": "mbc_fm4u",
+    "name": "MBC FM4U",
+    "frequency": "91.9 MHz",
+    "streamUrl": "https://stream.mbc.co.kr/mbc_fm4u",
+    "color": "#2A9D8F",
+    "logo": "🎵"
+  },
+  {
+    "id": "sbs_powerfm",
+    "name": "SBS 파워FM",
+    "frequency": "107.7 MHz",
+    "streamUrl": "https://aac-sbs.gscdn.com/sbs_power/",
+    "color": "#457B9D",
+    "logo": "⚡"
+  },
+  {
+    "id": "sbs_lovefm",
+    "name": "SBS 러브FM",
+    "frequency": "103.5 MHz",
+    "streamUrl": "https://aac-sbs.gscdn.com/sbs_love/",
+    "color": "#E76F51",
+    "logo": "❤️"
+  },
+  {
+    "id": "tbs_efm",
+    "name": "TBS eFM",
+    "frequency": "101.3 MHz",
+    "streamUrl": "http://tbs.gscdn.com/tbs_fm/",
+    "color": "#6A4C93",
+    "logo": "🌐"
+  }
+]

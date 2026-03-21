@@ -36,7 +36,7 @@
 - [x] **다채널 스트리밍 시스템**: KBS, MBC, SBS 등 6개 주요 라디오 채널 스트림 URL 연동.
 - [x] **UI/UX 구현**: 채널 선택 탭, 실시간 자막 스크롤 뷰, 퀴즈 감지 시 팝업 버튼 구현.
 - [x] **SMS 연동**: 안드로이드 네이티브 SMS 모듈 연동 및 발송 테스트 완료.
-- [x] **STT 시뮬레이터**: 실제 자막 수신 시나리오 테스트를 위한 모의 STT 서비스 구축.
+- [x] **OpenAI Whisper (Local STT) 연동**: 시뮬레이터가 아닌 실제 라디오 음성을 기반으로 한 실시간 자막 구현 완료.
 - [x] **웹 랜딩 페이지**: 앱 소개 및 APK 다운로드 링크를 제공하는 세련된 Next.js 웹사이트 배포 (`https://radioquiz-19892.web.app`).
 - [x] **형상 관리**: GitHub 연동 및 전체 소스 코드 동기화 (`main` 브랜치).
 
@@ -45,7 +45,6 @@
 ## 📌 향후 과제 (TODO List)
 
 ### 1단계: 핵심 기능 고도화 (Finalizing MVP)
-- [ ] **네이버 CLOVA Speech API 연동**: 시뮬레이터가 아닌 실제 라디오 음성을 기반으로 한 실시간 자막 구현.
 - [ ] **정답 추출 알고리즘**: Gemini AI 또는 GPT API를 연동하여 자막 속 정답 정보(번호, 키워드) 자동 추출 기능.
 - [ ] **APK 자동 업데이트**: 앱 빌드 완료 시 웹 페이지 다운로드 버튼에 자동으로 최신 파일 연결 자동화.
 
@@ -88,4 +87,43 @@
   3. Firebase Hosting으로 업로드 및 릴리즈.
 
 ---
+## 📱 Expo 개발 가이드 (Mobile App)
+
+`RadioQuizExpo` 폴더 내에서 작업을 수행합니다.
+
+### 실행 방법
+```bash
+cd RadioQuizExpo
+npm install
+npx expo start
+```
+
+### 빌드 방법 (EAS Build)
+안드로이드 APK 파일을 생성하려면 다음 명령어를 사용합니다.
+```bash
+# 개발/테스트용 APK 빌드 (추천)
+eas build --profile preview --platform android
+
+# 정식 출시용 빌드
+eas build --profile production --platform android
+```
+
+---
+
+## 🚀 APK 배포 가이드 (Deployment)
+
+완성된 APK를 랜딩 페이지에 연결하는 방법은 두 가지가 있습니다. `web/src/constants/links.ts` 파일의 `APK_DOWNLOAD_URL` 값을 수정하여 전환할 수 있습니다.
+
+### 방법 1: Expo(EAS) 링크 직접 연결 (현재 적용)
+- EAS 빌드가 완료된 후 Expo 대시보드에서 제공하는 다운로드 링크를 사용합니다.
+- **장점**: 별도 업로드 없이 즉시 업데이트 가능.
+- **단점**: 일정 기간 후 링크 만료 위험 및 긴 URL.
+
+### 방법 2: 직접 호스팅 (권장)
+- 빌드된 APK를 다운로드하여 `web/public/downloads/` 폴더에 넣습니다.
+- `APK_DOWNLOAD_URL`을 `/downloads/radio-quiz-v1.0.apk`와 같이 수정합니다.
+- **장점**: 영구적인 링크, 깔끔한 다운로드 URL.
+
+---
+
 **문의 및 제안**: [GitHub Issues](https://github.com/CHOIHYUKMIN/radioQuiz/issues) 를 통해 남겨주세요.

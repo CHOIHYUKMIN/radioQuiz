@@ -3,7 +3,7 @@
     "id": "kbs_1radio",
     "name": "KBS 제1라디오",
     "frequency": "97.3 MHz",
-    "streamUrl": "http://kbs-scvs.gscdn.com/kbs_1radio/",
+    "streamUrl": "https://cfpwwwapi.kbs.co.kr/api/v1/landing/live/channel_code/21",
     "color": "#1B3A4B",
     "logo": "📢"
   },
@@ -11,7 +11,7 @@
     "id": "kbs_happyfm",
     "name": "KBS 해피FM (2라디오)",
     "frequency": "106.1 MHz",
-    "streamUrl": "http://kbs-scvs.gscdn.com/kbs_happyfm/",
+    "streamUrl": "https://cfpwwwapi.kbs.co.kr/api/v1/landing/live/channel_code/22",
     "color": "#F4A261",
     "logo": "😊"
   },
@@ -19,7 +19,7 @@
     "id": "kbs_coolfm",
     "name": "KBS 쿨FM",
     "frequency": "89.1 MHz",
-    "streamUrl": "http://kbs-scvs.gscdn.com/kbs_coolfm/",
+    "streamUrl": "https://cfpwwwapi.kbs.co.kr/api/v1/landing/live/channel_code/25",
     "color": "#E63946",
     "logo": "📻"
   },
@@ -27,7 +27,7 @@
     "id": "kbs_1fm",
     "name": "KBS 클래식FM (1FM)",
     "frequency": "93.1 MHz",
-    "streamUrl": "http://kbs-scvs.gscdn.com/kbs_1fm/",
+    "streamUrl": "https://cfpwwwapi.kbs.co.kr/api/v1/landing/live/channel_code/24",
     "color": "#6D597A",
     "logo": "🎻"
   },
@@ -35,7 +35,7 @@
     "id": "mbc_standard",
     "name": "MBC 표준FM",
     "frequency": "95.9 MHz",
-    "streamUrl": "https://stream.mbc.co.kr/mbc_fm",
+    "streamUrl": "https://sminiplay.imbc.com/aacplay.ashx?agent=webapp&channel=sfm",
     "color": "#14213D",
     "logo": "🎙️"
   },
@@ -43,7 +43,7 @@
     "id": "mbc_fm4u",
     "name": "MBC FM4U",
     "frequency": "91.9 MHz",
-    "streamUrl": "https://stream.mbc.co.kr/mbc_fm4u",
+    "streamUrl": "https://sminiplay.imbc.com/aacplay.ashx?agent=webapp&channel=mfm",
     "color": "#2A9D8F",
     "logo": "🎵"
   },
@@ -51,7 +51,7 @@
     "id": "sbs_powerfm",
     "name": "SBS 파워FM",
     "frequency": "107.7 MHz",
-    "streamUrl": "https://aac-sbs.gscdn.com/sbs_power/",
+    "streamUrl": "https://apis.sbs.co.kr/play-api/1.0/livestream/powerpc/powerfm?protocol=hls&ssl=Y",
     "color": "#457B9D",
     "logo": "⚡"
   },
@@ -59,7 +59,7 @@
     "id": "sbs_lovefm",
     "name": "SBS 러브FM",
     "frequency": "103.5 MHz",
-    "streamUrl": "https://aac-sbs.gscdn.com/sbs_love/",
+    "streamUrl": "https://apis.sbs.co.kr/play-api/1.0/livestream/lovepc/lovefm?protocol=hls&ssl=Y",
     "color": "#E76F51",
     "logo": "❤️"
   },
