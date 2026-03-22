@@ -10,7 +10,6 @@ build/
 out/
 .next/
 .expo/
-*.apk
 *.aab
 
 # Expo specific
