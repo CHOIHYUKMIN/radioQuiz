@@ -7,14 +7,16 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  SafeAreaView,
   ActivityIndicator,
   Alert,
   Modal,
   PermissionsAndroid,
   Platform,
   SectionList,
+  ScrollView,
+  useWindowDimensions,
 } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import masterChannels from './src/data/masterChannels.json';
 import { sendQuizAnswerSms } from './src/services/smsService';
@@ -24,6 +26,8 @@ import { initSTTBridge, startSTT, isSTTReady } from './src/native/STTBridge';
 import { playChannel as playRadio, stopRadio, setRadioCallback, Channel } from './src/services/RadioService';
 import { SubtitleView } from './src/components/SubtitleView';
 import { formatKoreanSubtitles } from './src/utils/textUtils';
+import { detectQuizFromText, forceResetQuizDetector } from './src/services/quizService';
+import { extractQuizAnswer } from './src/services/llmService';
 
 const DEFAULT_CHANNELS = ['kbs_coolfm', 'mbc_fm4u', 'sbs_powerfm'];
 
@@ -45,16 +49,28 @@ const requestPermissions = async () => {
 };
 
 const App = () => {
+  const { width, height } = useWindowDimensions();
+  const isTablet = width >= 768;
+  const isPiPMode = height < 450 || width < 300;
+
   const [isPlayerReady, setIsPlayerReady] = useState(false);
   const [whisperProgress, setWhisperProgress] = useState<number>(0);
   const [isWhisperReadyState, setIsWhisperReadyState] = useState<boolean>(false);
   const [quizDetected, setQuizDetected] = useState<boolean>(false);
+  const [quizAnswer, setQuizAnswer] = useState<string>('');
+  const [isForceSTT, setIsForceSTT] = useState<boolean>(false);
+  const quizDetectedRef = useRef<boolean>(false);
 
   const [activeChannel, setActiveChannel] = useState<Channel | null>(null);
+  const activeChannelRef = useRef<Channel | null>(null);
   const [isPlayingStore, setIsPlayingStore] = useState(false);
 
+  const globalChunkCounterRef = useRef<number>(0);
+  const lastQuizSolvedCounterRef = useRef<number>(0);
+
   const sttStopRef = useRef<(() => void) | null>(null);
-  const [subtitles, setSubtitles] = useState<string[]>(["시스템 대기 중..."]);
+  const [channelSubtitles, setChannelSubtitles] = useState<Record<string, string[]>>({});
+  const [viewingChannelId, setViewingChannelId] = useState<string | null>(null);
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
@@ -99,9 +115,16 @@ const App = () => {
     setRadioCallback((isPlaying: boolean, channel: Channel | null) => {
       if (isMounted) {
         setIsPlayingStore(isPlaying);
-        if (channel) setActiveChannel(channel);
+        if (channel) {
+          setActiveChannel(channel);
+          activeChannelRef.current = channel;
+          setViewingChannelId(channel.id);
+        }
         if (isPlaying && channel) {
-          setSubtitles((prev) => [`🔊 ${channel.name} 📡 연결 완료!`, ...prev.slice(0, 50)]);
+          setChannelSubtitles((prev) => {
+            const hist = prev[channel.id] || [];
+            return { ...prev, [channel.id]: [...hist.slice(-50), `🔊 ${channel.name} 📡 연결 완료!`] };
+          });
         }
       }
     });
@@ -114,7 +137,7 @@ const App = () => {
 
   useEffect(() => {
     const isServiceRunning = isSTTReady();
-    const shouldRunSTT = isPlayingStore && isWhisperReadyState && isServiceRunning;
+    const shouldRunSTT = (isPlayingStore || isForceSTT) && isWhisperReadyState && isServiceRunning;
 
     if (shouldRunSTT) {
       if (!sttStopRef.current && !isStartingSTTRef.current) {
@@ -122,20 +145,63 @@ const App = () => {
         isStartingSTTRef.current = true;
 
         startSTT((text: string, isNewChunk: boolean) => {
+          if (isNewChunk) globalChunkCounterRef.current += 1;
+
           const cleanText = text.trim();
           if (cleanText) {
             const formattedText = formatKoreanSubtitles(cleanText);
-            setSubtitles((prev) => {
-              if (prev.length === 0) return [formattedText];
-              if (isNewChunk) {
-                return [...prev.slice(-50), formattedText];
-              } else {
-                return [...prev.slice(0, prev.length - 1), formattedText];
-              }
+            let latestSubtitles: string[] = [];
+            setChannelSubtitles((prev) => {
+              const chId = activeChannelRef.current?.id || 'default';
+              const hist = prev[chId] || [];
+              if (hist.length === 0) latestSubtitles = [formattedText];
+              else if (isNewChunk) latestSubtitles = [...hist.slice(-50), formattedText];
+              else latestSubtitles = [...hist.slice(0, hist.length - 1), formattedText];
+              return { ...prev, [chId]: latestSubtitles };
             });
-            if (cleanText.includes('정답') || cleanText.includes('퀴즈')) {
-              setQuizDetected(true);
-              setTimeout(() => setQuizDetected(false), 10000);
+            
+            // 퀴즈 감지 및 정답 추론 로직 (사이드 이펙트 분리)
+            if (!quizDetectedRef.current && latestSubtitles.length > 0) {
+              const freshCount = globalChunkCounterRef.current - lastQuizSolvedCounterRef.current;
+              const transcriptsToAnalyze = freshCount > 0 ? latestSubtitles.slice(-Math.min(freshCount, 30)) : [];
+              
+              if (transcriptsToAnalyze.length > 0) {
+                const { action, reason } = detectQuizFromText({ recentTranscripts: transcriptsToAnalyze });
+                
+                if (action === 'WAIT') {
+                  setQuizDetected(true);
+                  setQuizAnswer('⏳ ' + (reason || '문제 대기 중...'));
+                } else if (action === 'SOLVE' || action === 'SOLVE_AND_SEND') {
+                  lastQuizSolvedCounterRef.current = globalChunkCounterRef.current; // 과거 퀴즈 자막 밀어내기 (중복 방지)
+                  quizDetectedRef.current = true; // 이후 1분간 수집 루프 차단
+                setQuizDetected(true);
+                setQuizAnswer(action === 'SOLVE_AND_SEND' ? '🚀 음성 명령: 즉시 발송 대기중...' : '🧠 AI 풀이 중...');
+                
+                extractQuizAnswer(latestSubtitles.slice(-60)).then(ans => {
+                  if (ans) {
+                    setQuizAnswer(ans);
+                    if (action === 'SOLVE_AND_SEND') {
+                      setTimeout(() => handleSendQuizAnswer(ans), 500); // 팝업 없이 즉시 발송 앱 띄우기
+                    } else {
+                      Alert.alert('🎉 퀴즈 파악 완료!', `AI가 100% 문맥 분석으로 찾은 정답: [${ans}]\n\n자동 발송할까요?`, [
+                        { text: '취소', style: 'cancel' },
+                        { text: '발송', onPress: () => handleSendQuizAnswer(ans) }
+                      ]);
+                    }
+                  } else {
+                    setQuizAnswer('❌ 정답 파악 실패');
+                  }
+                });
+
+                // 1분간 재감지 방지 처리
+                setTimeout(() => {
+                  quizDetectedRef.current = false;
+                  setQuizDetected(false);
+                  setQuizAnswer('');
+                  forceResetQuizDetector();
+                }, 60000);
+              }
+            }
             }
           }
         }, () => {
@@ -162,7 +228,7 @@ const App = () => {
         setQuizDetected(false);
       }
     }
-  }, [isPlayingStore, isWhisperReadyState, sttRestartTrigger]);
+  }, [isPlayingStore, isForceSTT, isWhisperReadyState, sttRestartTrigger]);
 
   const displayChannels = (masterChannels as Channel[]).filter(c => selectedIds.includes(c.id));
 
@@ -184,14 +250,20 @@ const App = () => {
     await saveSelectedChannelIds(newIds);
   };
 
-  const handleSendQuizAnswer = () => {
-    sendQuizAnswerSms('8910', '정답: 2번')
+  const handleSendQuizAnswer = (customAnswer?: string) => {
+    const targetSmsNumber = activeChannel?.sms || '8910';
+    const answerContent = customAnswer ? `정답: ${customAnswer}` : `정답: ${quizAnswer}`;
+    sendQuizAnswerSms(targetSmsNumber, answerContent)
       .then(() => Alert.alert('성공', '정답 문자가 발송되었습니다! 🎉'))
       .catch(() => Alert.alert('실패', '발송 실패 😢'));
   };
 
   const handlePlayChannel = async (channel: Channel) => {
-    setSubtitles((prev) => [...prev.slice(-50), `🔊 ${channel.name} 📡 연결 중...`]);
+    setChannelSubtitles((prev) => {
+      const hist = prev[channel.id] || [];
+      return { ...prev, [channel.id]: [...hist.slice(-50), `🔊 ${channel.name} 📡 연결 중...`] };
+    });
+    setViewingChannelId(channel.id);
     await playRadio(channel);
   };
 
@@ -233,49 +305,94 @@ const App = () => {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>📻 라디오 AI 퀴즈 수집기</Text>
-        <TouchableOpacity style={styles.manageButton} onPress={() => setIsModalVisible(true)}>
-          <Text style={styles.manageButtonText}>채널 선택</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Main Body (Horizontal Layout) */}
-      <View style={styles.mainBody}>
-
-        {/* Left Side: Channel List */}
-        <View style={styles.leftColumn}>
-          <SectionList
-            sections={sections}
-            keyExtractor={(item) => item.id}
-            renderItem={renderSectionHeader ? renderChannel : () => null}
-            renderSectionHeader={renderSectionHeader}
-            contentContainerStyle={styles.listContent}
-            ListEmptyComponent={<Text style={styles.emptyText}>채널을 선택해 주세요.</Text>}
-            showsVerticalScrollIndicator={false}
-            stickySectionHeadersEnabled={false}
-          />
-        </View>
-
-        {/* Right Side: Subtitle Panel */}
-        <View style={styles.rightColumn}>
-          <View style={styles.subtitleHeader}>
-            <Text style={styles.subtitleTitle} numberOfLines={1}>
-              {activeChannel ? activeChannel.name : '대기중 (마이크 켜기 가능)'}
-            </Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              {quizDetected && (
-                <TouchableOpacity style={styles.quizButton} onPress={handleSendQuizAnswer}>
-                  <Text style={styles.quizButtonText}>정답 발송</Text>
-                </TouchableOpacity>
-              )}
+    <SafeAreaProvider>
+      <SafeAreaView style={styles.container}>
+        {/* Header */}
+        {!isPiPMode && (
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>📻 라디오 AI 퀴즈 수집기</Text>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <TouchableOpacity
+                style={[styles.manageButton, isForceSTT && { backgroundColor: '#E63946' }]}
+                onPress={() => setIsForceSTT(!isForceSTT)}
+              >
+                <Text style={styles.manageButtonText}>{isForceSTT ? '🔴 듣는 중 (끄기)' : '마이크 단독 켜기'}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.manageButton} onPress={() => setIsModalVisible(true)}>
+                <Text style={styles.manageButtonText}>채널 선택</Text>
+              </TouchableOpacity>
             </View>
           </View>
+        )}
+
+      {/* Main Body (Responsive Layout) */}
+      <View style={[styles.mainBody, { flexDirection: isTablet ? 'row' : 'column' }]}>
+
+        {/* Left Side: Channel List */}
+        {!isPiPMode && (
+          <View style={[styles.leftColumn, { 
+            width: isTablet ? 320 : '100%', 
+            flex: isTablet ? undefined : 0.4,
+            borderRightWidth: isTablet ? 1 : 0,
+            borderBottomWidth: isTablet ? 0 : 1
+          }]}>
+            <SectionList
+              sections={sections}
+              keyExtractor={(item) => item.id}
+              renderItem={renderSectionHeader ? renderChannel : () => null}
+              renderSectionHeader={renderSectionHeader}
+              contentContainerStyle={styles.listContent}
+              ListEmptyComponent={<Text style={styles.emptyText}>채널을 선택해 주세요.</Text>}
+              showsVerticalScrollIndicator={false}
+              stickySectionHeadersEnabled={false}
+            />
+          </View>
+        )}
+
+        {/* Right Side: Subtitle Panel */}
+        <View style={[styles.rightColumn, { 
+          flex: isTablet ? 1 : (isPiPMode ? 1 : 0.6), 
+          margin: isTablet ? 15 : (isPiPMode ? 0 : 10),
+          borderRadius: isPiPMode ? 0 : 16,
+          borderWidth: isPiPMode ? 0 : 1
+        }]}>
+          {!isPiPMode && (
+            <View style={styles.subtitleHeader}>
+              <View style={styles.tabBarContainer}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  {displayChannels.map(ch => {
+                    const isViewing = viewingChannelId === ch.id;
+                    const isPlaying = activeChannel?.id === ch.id && isPlayingStore;
+                    return (
+                      <TouchableOpacity 
+                        key={ch.id} 
+                        style={[styles.tabButton, isViewing && styles.tabButtonActive]}
+                        onPress={() => {
+                          if (activeChannel?.id !== ch.id) {
+                            handlePlayChannel(ch);
+                          }
+                        }}
+                      >
+                        <Text style={[styles.tabText, isViewing && styles.tabTextActive]}>
+                          {ch.name} {isPlaying ? '🎧' : ''}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                {quizDetected && (
+                  <TouchableOpacity style={styles.quizButton} onPress={() => handleSendQuizAnswer()}>
+                    <Text style={styles.quizButtonText}>정답 발송</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          )}
 
           {/* SubtitleView 모듈화 적용 */}
-          <SubtitleView subtitles={subtitles} />
+          <SubtitleView subtitles={viewingChannelId ? (channelSubtitles[viewingChannelId] || ["(이 채널의 자막 기록이 없습니다)"]) : ["채널을 선택해 주세요"]} isPiP={isPiPMode} />
         </View>
       </View>
 
@@ -307,7 +424,8 @@ const App = () => {
           />
         </SafeAreaView>
       </Modal>
-    </SafeAreaView>
+      </SafeAreaView>
+    </SafeAreaProvider>
   );
 };
 
@@ -335,8 +453,12 @@ const styles = StyleSheet.create({
   playButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.1)', justifyContent: 'center', alignItems: 'center', marginLeft: 10 },
   playIcon: { fontSize: 16, color: '#FFFFFF' },
   rightColumn: { flex: 1, backgroundColor: '#121212', margin: 15, borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: '#333' },
-  subtitleHeader: { padding: 20, backgroundColor: '#1E1E1E', borderBottomWidth: 1, borderBottomColor: '#333', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  subtitleTitle: { fontSize: 20, fontWeight: 'bold', color: '#FFFFFF', flex: 1, marginRight: 15 },
+  subtitleHeader: { backgroundColor: '#1E1E1E', borderBottomWidth: 1, borderBottomColor: '#333', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingRight: 15 },
+  tabBarContainer: { flex: 1, paddingLeft: 10, paddingVertical: 12 },
+  tabButton: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#2A2A2A', marginRight: 10, borderWidth: 1, borderColor: '#333' },
+  tabButtonActive: { backgroundColor: '#E63946', borderColor: '#E63946' },
+  tabText: { color: '#AAA', fontSize: 15, fontWeight: '600' },
+  tabTextActive: { color: '#FFF' },
   quizButton: { backgroundColor: '#E63946', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 8, marginLeft: 10 },
   quizButtonText: { color: '#FFF', fontSize: 14, fontWeight: 'bold' },
   modalContainer: { flex: 1, backgroundColor: '#1A1A1A' },

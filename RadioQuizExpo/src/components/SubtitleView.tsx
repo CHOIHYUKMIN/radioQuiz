@@ -3,9 +3,10 @@ import { ScrollView, Text, StyleSheet } from 'react-native';
 
 interface SubtitleViewProps {
   subtitles: string[];
+  isPiP?: boolean;
 }
 
-export const SubtitleView: React.FC<SubtitleViewProps> = ({ subtitles }) => {
+export const SubtitleView: React.FC<SubtitleViewProps> = ({ subtitles, isPiP = false }) => {
   const scrollViewRef = useRef<ScrollView>(null);
 
   return (
@@ -20,8 +21,8 @@ export const SubtitleView: React.FC<SubtitleViewProps> = ({ subtitles }) => {
         <Text 
           key={idx} 
           style={[
-            styles.subtitleText, 
-            idx === subtitles.length - 1 && styles.subtitleTextLatest
+            isPiP ? styles.subtitleTextPiP : styles.subtitleText, 
+            idx === subtitles.length - 1 && (isPiP ? styles.subtitleTextLatestPiP : styles.subtitleTextLatest)
           ]}
         >
           {text}
@@ -48,5 +49,21 @@ const styles = StyleSheet.create({
   subtitleTextLatest: {
     color: '#FFFFFF',
     fontWeight: 'bold',
+  },
+  subtitleTextPiP: {
+    fontSize: 22,
+    color: '#E0E0E0',
+    lineHeight: 32,
+    marginBottom: 4,
+    textShadowColor: 'rgba(0, 0, 0, 0.9)',
+    textShadowOffset: { width: -1, height: 1 },
+    textShadowRadius: 10,
+  },
+  subtitleTextLatestPiP: {
+    fontSize: 26,
+    color: '#FFFFFF',
+    fontWeight: '900',
+    textShadowColor: '#E63946',
+    textShadowRadius: 8,
   },
 });

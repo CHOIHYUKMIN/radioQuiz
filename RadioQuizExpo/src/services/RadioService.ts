@@ -7,11 +7,28 @@ export interface Channel {
   streamUrl: string;
   color: string;
   logo: string;
+  sms: string;
 }
 
 let sound: Audio.Sound | null = null;
 let currentChannel: Channel | null = null;
 let currentIsPlaying = false;
+let isAudioConfigured = false;
+
+const configureAudio = async () => {
+  if (isAudioConfigured) return;
+  try {
+    await Audio.setAudioModeAsync({
+      playsInSilentModeIOS: true,
+      staysActiveInBackground: true,
+      playThroughEarpieceAndroid: false,
+    });
+    isAudioConfigured = true;
+    console.log('RadioService: Audio mode configured for background/PiP.');
+  } catch (e) {
+    console.error('RadioService: Audio mode config error', e);
+  }
+};
 
 type PlaybackStatusCallback = (isPlaying: boolean, currentChannel: Channel | null) => void;
 let onPlaybackChange: PlaybackStatusCallback | null = null;
@@ -38,6 +55,7 @@ export const getResolvedStreamUrl = async (channel: Channel): Promise<string> =>
 };
 
 export const playChannel = async (channel: Channel): Promise<void> => {
+  await configureAudio();
   try {
     if (currentChannel?.id === channel.id && sound) {
       if (currentIsPlaying) {

@@ -5,7 +5,8 @@
     "frequency": "97.3 MHz",
     "streamUrl": "https://cfpwwwapi.kbs.co.kr/api/v1/landing/live/channel_code/21",
     "color": "#1B3A4B",
-    "logo": "📢"
+    "logo": "📢",
+    "sms": "9730"
   },
   {
     "id": "kbs_happyfm",
@@ -13,7 +14,8 @@
     "frequency": "106.1 MHz",
     "streamUrl": "https://cfpwwwapi.kbs.co.kr/api/v1/landing/live/channel_code/22",
     "color": "#F4A261",
-    "logo": "😊"
+    "logo": "😊",
+    "sms": "1061"
   },
   {
     "id": "kbs_coolfm",
@@ -21,7 +23,8 @@
     "frequency": "89.1 MHz",
     "streamUrl": "https://cfpwwwapi.kbs.co.kr/api/v1/landing/live/channel_code/25",
     "color": "#E63946",
-    "logo": "📻"
+    "logo": "📻",
+    "sms": "8910"
   },
   {
     "id": "kbs_1fm",
@@ -29,7 +32,8 @@
     "frequency": "93.1 MHz",
     "streamUrl": "https://cfpwwwapi.kbs.co.kr/api/v1/landing/live/channel_code/24",
     "color": "#6D597A",
-    "logo": "🎻"
+    "logo": "🎻",
+    "sms": "9310"
   },
   {
     "id": "mbc_standard",
@@ -37,7 +41,8 @@
     "frequency": "95.9 MHz",
     "streamUrl": "https://sminiplay.imbc.com/aacplay.ashx?agent=webapp&channel=sfm",
     "color": "#14213D",
-    "logo": "🎙️"
+    "logo": "🎙️",
+    "sms": "8001"
   },
   {
     "id": "mbc_fm4u",
@@ -45,7 +50,8 @@
     "frequency": "91.9 MHz",
     "streamUrl": "https://sminiplay.imbc.com/aacplay.ashx?agent=webapp&channel=mfm",
     "color": "#2A9D8F",
-    "logo": "🎵"
+    "logo": "🎵",
+    "sms": "8000"
   },
   {
     "id": "sbs_powerfm",
@@ -53,7 +59,8 @@
     "frequency": "107.7 MHz",
     "streamUrl": "https://apis.sbs.co.kr/play-api/1.0/livestream/powerpc/powerfm?protocol=hls&ssl=Y",
     "color": "#457B9D",
-    "logo": "⚡"
+    "logo": "⚡",
+    "sms": "1077"
   },
   {
     "id": "sbs_lovefm",
@@ -61,7 +68,8 @@
     "frequency": "103.5 MHz",
     "streamUrl": "https://apis.sbs.co.kr/play-api/1.0/livestream/lovepc/lovefm?protocol=hls&ssl=Y",
     "color": "#E76F51",
-    "logo": "❤️"
+    "logo": "❤️",
+    "sms": "1035"
   },
   {
     "id": "cbs_music",
@@ -69,7 +77,8 @@
     "frequency": "93.9 MHz",
     "streamUrl": "http://aac.cbs.co.kr/cbs939/_definst_/cbs939.stream/playlist.m3u8",
     "color": "#588157",
-    "logo": "🎹"
+    "logo": "🎹",
+    "sms": "9390"
   },
   {
     "id": "cbs_standard",
@@ -77,7 +86,8 @@
     "frequency": "98.1 MHz",
     "streamUrl": "http://aac.cbs.co.kr/cbs981/_definst_/cbs981.stream/playlist.m3u8",
     "color": "#3A5A40",
-    "logo": "📰"
+    "logo": "📰",
+    "sms": "9810"
   },
   {
     "id": "ebs_fm",
@@ -85,7 +95,8 @@
     "frequency": "104.5 MHz",
     "streamUrl": "http://ebsonair.ebs.co.kr/fm_mp3/playlist.m3u8",
     "color": "#FFB703",
-    "logo": "🎓"
+    "logo": "🎓",
+    "sms": "1045"
   },
   {
     "id": "tbs_fm",
@@ -93,7 +104,8 @@
     "frequency": "95.1 MHz",
     "streamUrl": "http://tbs.gscdn.com/tbs_fm/",
     "color": "#1D3557",
-    "logo": "🚗"
+    "logo": "🚗",
+    "sms": "0951"
   },
   {
     "id": "tbs_efm",
@@ -101,6 +113,7 @@
     "frequency": "101.3 MHz",
     "streamUrl": "http://tbs.gscdn.com/tbs_fm/",
     "color": "#A8DADC",
-    "logo": "🌐"
+    "logo": "🌐",
+    "sms": "1013"
   }
 ]

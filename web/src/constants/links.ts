@@ -9,4 +9,4 @@
  */
 
 // Custom manual file
-export const APK_DOWNLOAD_URL = "/radio_quiz_v1.0.1.apk";
+export const APK_DOWNLOAD_URL = '/download/app-release-1.0.7.apk';

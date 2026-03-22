@@ -13,12 +13,8 @@ export const initSTTBridge = async (onProgress?: (progress: number) => void): Pr
       console.error('CloudSTTBridge: Permission not granted!');
     }
 
-    try {
-      const downloadRes = await ExpoSpeechRecognitionModule.androidTriggerOfflineModelDownload({ locale: 'ko-KR' });
-      console.log('CloudSTTBridge: Offline model status:', downloadRes.status);
-    } catch (e) {
-      console.log('CloudSTTBridge: Offline model trigger skipped', e);
-    }
+    // Removed androidTriggerOfflineModelDownload as it shows a native popup that fails on some devices.
+    // Users are expected to manually download the language pack through Android Settings.
   } catch (e) {
     console.log('CloudSTTBridge: Permission request bypassed or error', e);
   }
