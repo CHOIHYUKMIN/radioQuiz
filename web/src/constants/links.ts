@@ -9,4 +9,4 @@
  */
 
 // Custom manual file
-export const APK_DOWNLOAD_URL = '/download/app-release-1.0.27.apk';
+export const APK_DOWNLOAD_URL = '/download/app-release-1.0.28.apk';
