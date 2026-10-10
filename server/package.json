@@ -1,0 +1,9 @@
+{
+  "name": "radioquiz-server",
+  "private": true,
+  "type": "module",
+  "description": "라디오퀴즈 곡 인식 중계 서버 (ACRCloud 비밀키를 앱 대신 보관)",
+  "engines": {
+    "node": ">=20"
+  }
+}
